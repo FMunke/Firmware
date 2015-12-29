@@ -16,3 +16,12 @@ sh /etc/init.d/rc.mc_defaults
 set MIXER octo_+
 
 set PWM_OUT 12345678
+
+
+set PWM_AUX_OUT 1234
+set PWM_AUX_RATE 100
+
+set PWM_AUX_MIN 1100
+set PWM_AUX_MAX 2100
+
+set PWM_AUX_DISARMED 1100

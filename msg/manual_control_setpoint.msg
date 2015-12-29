@@ -30,6 +30,7 @@ float32 r			 # yaw stick/twist positon, -1..1
 				 # in general corresponds to the righthand rotation around the vertical
 				 # (downwards) axis of the vehicle
 float32 flaps			 # flap position
+float32 aux1raw			 
 float32 aux1			 # default function: camera yaw / azimuth
 float32 aux2			 # default function: camera pitch / tilt
 float32 aux3			 # default function: camera trigger

@@ -45,6 +45,12 @@
 
 #include <drivers/drv_orb_dev.h>
 
+#include <topics/rbp_pump_state.h>
+ORB_DEFINE(rbp_pump_state, struct rbp_pump_state_s);
+
+#include <topics/rbp_pump_display.h>
+ORB_DEFINE(rbp_pump_display, struct rbp_pump_display_s);
+
 #include "topics/sensor_mag.h"
 ORB_DEFINE(sensor_mag, struct sensor_mag_s);
 

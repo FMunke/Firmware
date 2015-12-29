@@ -77,6 +77,7 @@
 #include <mavlink/mavlink_log.h>
 
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/vehicle_command_ack.h>
 
 #include "mavlink_bridge_header.h"
 #include "mavlink_main.h"
@@ -1232,7 +1233,7 @@ Mavlink::configure_stream_threadsafe(const char *stream_name, const float rate)
 			usleep(MAIN_LOOP_DELAY / 2);
 		} while (_subscribe_to_stream != nullptr);
 
-		delete s;
+		delete[] s;
 	}
 }
 
@@ -1523,6 +1524,9 @@ Mavlink::task_main(int argc, char *argv[])
 			} else if (strcmp(myoptarg, "osd") == 0) {
 				_mode = MAVLINK_MODE_OSD;
 
+			} else if (strcmp(myoptarg, "magic") == 0) {
+				_mode = MAVLINK_MODE_MAGIC;
+
 			} else if (strcmp(myoptarg, "config") == 0) {
 				_mode = MAVLINK_MODE_CONFIG;
 			}
@@ -1636,9 +1640,13 @@ Mavlink::task_main(int argc, char *argv[])
 	uint64_t param_time = 0;
 	MavlinkOrbSubscription *status_sub = add_orb_subscription(ORB_ID(vehicle_status));
 	uint64_t status_time = 0;
+	MavlinkOrbSubscription *ack_sub = add_orb_subscription(ORB_ID(vehicle_command_ack));
+	uint64_t ack_time = 0;
 
 	struct vehicle_status_s status;
 	status_sub->update(&status_time, &status);
+	struct vehicle_command_ack_s command_ack;
+	ack_sub->update(&ack_time, &command_ack);
 
 	/* add default streams depending on mode */
 
@@ -1686,6 +1694,8 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("DISTANCE_SENSOR", 0.5f);
 		configure_stream("OPTICAL_FLOW_RAD", 5.0f);
 		configure_stream("EXTENDED_SYS_STATE", 1.0f);
+		configure_stream("ALTITUDE", 1.0f);
+		configure_stream("VISION_POSITION_NED", 10.0f);
 		break;
 
 	case MAVLINK_MODE_ONBOARD:
@@ -1709,9 +1719,11 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("SYSTEM_TIME", 1.0f);
 		configure_stream("TIMESYNC", 10.0f);
 		configure_stream("ACTUATOR_CONTROL_TARGET0", 10.0f);
-		/* camera trigger is rate limited at the source, do not limit here */
+		//camera trigger is rate limited at the source, do not limit here
 		configure_stream("CAMERA_TRIGGER", 500.0f);
 		configure_stream("EXTENDED_SYS_STATE", 2.0f);
+		configure_stream("ALTITUDE", 10.0f);
+		configure_stream("VISION_POSITION_NED", 10.0f);
 		break;
 
 	case MAVLINK_MODE_OSD:
@@ -1727,6 +1739,11 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("RC_CHANNELS", 5.0f);
 		configure_stream("SERVO_OUTPUT_RAW_0", 1.0f);
 		configure_stream("EXTENDED_SYS_STATE", 1.0f);
+		configure_stream("ALTITUDE", 1.0f);
+		break;
+
+	case MAVLINK_MODE_MAGIC:
+		//stream nothing
 		break;
 
 	case MAVLINK_MODE_CONFIG:
@@ -1743,7 +1760,7 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("VFR_HUD", 20.0f);
 		configure_stream("ATTITUDE", 100.0f);
 		configure_stream("ACTUATOR_CONTROL_TARGET0", 30.0f);
-		configure_stream("RC_CHANNELS", 5.0f);
+		configure_stream("RC_CHANNELS", 10.0f);
 		configure_stream("SERVO_OUTPUT_RAW_0", 20.0f);
 		configure_stream("SERVO_OUTPUT_RAW_1", 20.0f);
 		configure_stream("POSITION_TARGET_GLOBAL_INT", 10.0f);
@@ -1753,6 +1770,8 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("GPS_RAW_INT", 20.0f);
 		configure_stream("CAMERA_TRIGGER", 500.0f);
 		configure_stream("EXTENDED_SYS_STATE", 2.0f);
+		configure_stream("ALTITUDE", 10.0f);
+		configure_stream("VISION_POSITION_NED", 10.0f);
 
 	default:
 		break;
@@ -1840,6 +1859,15 @@ Mavlink::task_main(int argc, char *argv[])
 			set_hil_enabled(status.hil_state == vehicle_status_s::HIL_STATE_ON);
 
 			set_manual_input_mode_generation(status.rc_input_mode == vehicle_status_s::RC_IN_MODE_GENERATED);
+		}
+
+		/* send command ACK */
+		if (ack_sub->update(&ack_time, &command_ack)) {
+			mavlink_command_ack_t msg;
+			msg.result = command_ack.result;
+			msg.command = command_ack.command;
+
+			send_message(MAVLINK_MSG_ID_COMMAND_ACK, &msg);
 		}
 
 		/* check for requested subscriptions */
